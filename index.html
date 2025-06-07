@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Pemetaan Kampus di Kota Medan</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .icon-3d { transition: transform 0.5s ease; }
+        .icon-3d:hover { transform: rotateY(20deg) scale(1.1); }
+        .loading {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .cluster-icon {
+            background-color: #3b82f6 !important;
+            color: white !important;
+            font-weight: bold;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .leaflet-popup-content-wrapper {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 0;
+            overflow: hidden;
+        }
+        .leaflet-popup-content { margin: 0; width: 300px !important; }
+        .leaflet-popup-close-button { padding: 12px 12px 0 0 !important; color: #555 !important; }
+        .popup-header {
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .popup-header img {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #eee;
+        }
+        .popup-header h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1a202c;
+            line-height: 1.3;
+        }
+        .popup-body { padding: 16px; }
+        .popup-body .address {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: #4a5568;
+            margin-bottom: 16px;
+        }
+        .popup-body .address i { margin-top: 4px; color: #ef4444; }
+        .popup-footer {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .popup-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white !important;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        .popup-button.website { background-color: #3b82f6; }
+        .popup-button.website:hover { background-color: #2563eb; transform: translateY(-2px); }
+        .popup-button.maps { background-color: #22c55e; }
+        .popup-button.maps:hover { background-color: #16a34a; transform: translateY(-2px); }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <header class="bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <button id="sidebarToggle" class="md:hidden text-2xl"><i class="fas fa-bars"></i></button>
+                <h1 class="text-2xl font-bold flex items-center gap-3">
+                    <i class="fas fa-map-marked-alt"></i><span>Pemetaan Kampus Kota Medan</span>
+                </h1>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-col md:flex-row h-[calc(100vh-73px)]">
+        <aside id="sidebar" class="w-full md:w-80 bg-white shadow-lg overflow-y-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-20 absolute md:relative">
+            <div class="px-6 py-6">
+                <div class="flex justify-center mb-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-full shadow-lg icon-3d">
+                        <i class="fas fa-university text-white text-4xl"></i>
+                    </div>
+                </div>
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Daftar Kampus</h2>
+
+                <!-- Search Input -->
+                <div class="mb-4">
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><i class="fas fa-search"></i></span>
+                        <input type="text" id="searchCampus" placeholder="Cari kampus..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"/>
+                    </div>
+                </div>
+
+                <!-- Filter Buttons -->
+                <div class="mb-6 flex justify-center gap-2">
+                    <button class="filter-button px-4 py-2 rounded-full border border-gray-300 bg-white hover:bg-blue-500 hover:text-white transition" data-filter="">Semua</button>
+                    <button class="filter-button px-4 py-2 rounded-full border border-gray-300 bg-white hover:bg-blue-500 hover:text-white transition" data-filter="Negeri">Negeri</button>
+                    <button class="filter-button px-4 py-2 rounded-full border border-gray-300 bg-white hover:bg-blue-500 hover:text-white transition" data-filter="Swasta">Swasta</button>
+                </div>
+
+                <div id="campusList" class="space-y-3">
+                    <div class="text-center py-8">
+                        <div class="loading mx-auto"></div>
+                        <p class="text-gray-500 mt-2">Memuat data kampus...</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main id="map" class="flex-1 border-l border-gray-300"></main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
+
+        const map = L.map('map').setView([3.5952, 98.6722], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const markers = L.markerClusterGroup({
+            iconCreateFunction: function(cluster) {
+                const count = cluster.getChildCount();
+                return L.divIcon({
+                    html: `<div>${count}</div>`,
+                    className: 'cluster-icon',
+                    iconSize: L.point(40, 40)
+                });
+            }
+        });
+
+        let allFeatures = [];
+
+        fetch('kampus_medan.geojson')
+            .then(res => res.json())
+            .then(data => {
+                const geojsonLayer = L.geoJSON(data, {
+                    onEachFeature: (feature, layer) => {
+                        const props = feature.properties;
+                        const logo = props.logo_url || 'https://placehold.co/100x100/e2e8f0/4a5568?text=Logo';
+                        const website = props.website || '#';
+                        const lat = feature.geometry.coordinates[1];
+                        const lng = feature.geometry.coordinates[0];
+                        const googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+                        const popupContent = `
+                            <div>
+                                <div class="popup-header">
+                                    <img src="${logo}" alt="Logo ${props.nama_kmps}"/>
+                                    <h3>${props.nama_kmps || 'Nama Kampus Tidak Tersedia'}</h3>
+                                </div>
+                                <div class="popup-body">
+                                    <div class="address">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        <span>${props.alamat || 'Alamat tidak tersedia'}</span>
+                                    </div>
+                                    <div class="popup-footer">
+                                        <a href="${website}" target="_blank" class="popup-button website"><i class="fas fa-globe"></i> Website</a>
+                                        <a href="${googleMapsLink}" target="_blank" class="popup-button maps"><i class="fas fa-directions"></i> Rute</a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        layer.bindPopup(popupContent);
+                    }
+                });
+
+                allFeatures = geojsonLayer.getLayers();
+                markers.addLayer(geojsonLayer);
+                map.addLayer(markers);
+
+                populateCampusList(allFeatures);
+
+                document.getElementById('searchCampus').addEventListener('input', filterCampuses);
+                document.querySelectorAll('.filter-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('bg-blue-500', 'text-white'));
+                        button.classList.add('bg-blue-500', 'text-white');
+                        filterCampuses();
+                    });
+                });
+            });
+
+        function filterCampuses() {
+            const searchQuery = document.getElementById('searchCampus').value.toLowerCase();
+            const activeButton = document.querySelector('.filter-button.bg-blue-500');
+            const typeFilter = activeButton ? activeButton.dataset.filter : '';
+
+            const filtered = allFeatures.filter(layer => {
+                const props = layer.feature.properties;
+                const matchName = props.nama_kmps.toLowerCase().includes(searchQuery);
+                const matchType = typeFilter === '' || props.status === typeFilter;
+                return matchName && matchType;
+            });
+
+            markers.clearLayers();
+            const newGroup = L.featureGroup(filtered);
+            markers.addLayer(newGroup);
+            populateCampusList(filtered);
+        }
+
+        function populateCampusList(layers) {
+            const campusList = document.getElementById('campusList');
+            campusList.innerHTML = '';
+            if (layers.length === 0) {
+                campusList.innerHTML = '<p class="text-center text-gray-500">Kampus tidak ditemukan.</p>';
+                return;
+            }
+            // Urutkan secara alfabetis
+            const sortedLayers = layers.sort((a, b) => {
+                const nameA = a.feature.properties.nama_kmps.toLowerCase();
+                const nameB = b.feature.properties.nama_kmps.toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+
+            sortedLayers.forEach(layer => {
+                const props = layer.feature.properties;
+                const coords = layer.feature.geometry.coordinates;
+                const logo = props.logo_url || 'https://placehold.co/60x60/e2e8f0/4a5568?text=Logo';
+
+                const item = document.createElement('div');
+                item.className = 'bg-white p-4 rounded-lg shadow-sm hover:shadow-lg border border-gray-200 cursor-pointer transition-shadow duration-300 flex items-center gap-3';
+                item.innerHTML = `
+                    <img src="${logo}" alt="Logo ${props.nama_kmps}" class="w-12 h-12 rounded-lg object-cover border border-gray-300"/>
+                    <h4 class="font-bold text-gray-800 text-base">${props.nama_kmps || 'N/A'}</h4>
+                `;
+
+                item.addEventListener('click', () => {
+                    map.flyTo([coords[1], coords[0]], 17);
+                    setTimeout(() => { layer.openPopup(); }, 500);
+                });
+
+                campusList.appendChild(item);
+            });
+        }
+    });
+    </script>
+</body>
+</html>
